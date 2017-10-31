@@ -309,7 +309,7 @@ class Java
     types = []
     all_classes.each do
       |tag, ref_id, sig, gsig, status|
-      next if sig !~ /^L([\w\/]+);/
+      next if sig !~ /^L([\w\/\$]+);/
       cls_fqn = $1
       *mod, cls_name = cls_fqn.split('/')
       types << [
@@ -338,7 +338,7 @@ class Java
     end
 
     types.each do |mod, cls_name, type|
-      rbname = ["Java", *mod, cls_name] * '_'
+      rbname = ["Java", *mod, cls_name.gsub('$', '__')] * '_'
       cls = eval("class #{rbname}; end; #{rbname}")
       type = TypeMirror.new(self, cls, *type)
       @id2cls[type.ref_id] = cls
@@ -414,8 +414,8 @@ if $0 == __FILE__
     p java.io.File.new("foo//bar").isDirectory()
     p java.io.File.new("foo//bar").getParentFile()
     p java.lang.System.console
-    #p java.lang.System.console.writer
     p java.lang.System.out
     p java.lang.System.out.println("Hello, world!")
+    p java.lang.System.console.writer
   end
 end
