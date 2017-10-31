@@ -10,13 +10,6 @@ class Java
     end
   end
 
-  class Class
-    def initialize(mod, name)
-      @mod = mod
-      @name = name
-    end
-  end
-
   class MethodMirror
     attr_reader :id, :arg_tags
 
@@ -41,18 +34,21 @@ class Java
   end
 
   class TypeMirror
-    attr_reader :ref_id
+    attr_reader :ref_id, :cls_id, :scls_id
 
-    def initialize(j, cls, tag, ref_id, sig, gsig, status)
+    def initialize(j, tag, ref_id, sig, gsig, status)
       @j = j
-      @cls = cls
       @tag = tag
       @ref_id = ref_id
       @sig = sig
       @gsig = gsig
       @status = status
       @cls_id = @j.client.reference_type_class_object(@ref_id)
+      @scls_id = @j.client.class_type_superclass(@cls_id)
+    end
 
+    def setup_class(cls)
+      @cls = cls
       @methods = {}
       @static_methods = {}
 
@@ -230,7 +226,8 @@ class Java
   def initialize(cls, clspath)
     @id2obj = {}
     @id2obj[0] = nil
-    @id2cls = {}
+    @rid2cls = {}
+    @cid2cls = {}
 
     address = "localhost:8000"
     jdwp_ops = "-agentlib:jdwp=transport=dt_socket,server=y,address=#{address}"
@@ -288,19 +285,22 @@ class Java
       end
     end
 
-    load_classes(@client.virtual_machine_all_classes_with_generic)
+    load_classes
   end
 
-  def load_classes(all_classes)
+  def load_classes
+    all_classes = @client.virtual_machine_all_classes_with_generic
     modules = []
     types = []
     all_classes.each do
       |tag, ref_id, sig, gsig, status|
       next if sig !~ /^L([\w\/\$]+);/
+      next if @rid2cls[ref_id]
       cls_fqn = $1
       *mod, cls_name = cls_fqn.split('/')
+      type = TypeMirror.new(self, tag, ref_id, sig, gsig, status)
       types << [
-        mod, cls_name, [tag, ref_id, sig, gsig, status]
+        mod, cls_name, type
       ]
       modules << mod
     end
@@ -324,11 +324,16 @@ class Java
       end
     end
 
-    types.each do |mod, cls_name, type|
-      rbname = ["Java", *mod, cls_name.gsub('$', '__')] * '_'
-      cls = eval("class #{rbname}; end; #{rbname}")
-      type = TypeMirror.new(self, cls, *type)
-      @id2cls[type.ref_id] = cls
+    types.reverse.each do |mod, cls_name, type|
+      rbname = (["Java", *mod, cls_name] * '_').gsub('$', '__')
+      if type.scls_id == 0
+        cls_def = rbname
+      else
+        cls_def = "#{rbname} < #{@cid2cls[type.scls_id].name}"
+      end
+      cls = eval("class #{cls_def}; end; #{rbname}")
+      type.setup_class(cls)
+      @rid2cls[type.ref_id] = @cid2cls[type.cls_id] = cls
       module_map[mod].define_singleton_method(cls_name) do
         cls
       end
@@ -350,11 +355,10 @@ class Java
             if tag != Client::TypeTag::CLASS
               raise "Not implemented yet"
             end
-            cls = @id2cls[ref_id]
+            cls = @rid2cls[ref_id]
             if !cls
-              sig, gsig = @client.reference_type_signature_with_generic(ref_id)
-              load_classes([[nil, ref_id, sig, gsig, nil]])
-              cls = @id2cls[ref_id]
+              load_classes
+              cls = @rid2cls[ref_id]
             end
             cls.new(v)
           elsif v.is_a?(Client::StringID)
@@ -404,6 +408,6 @@ if $0 == __FILE__
     p java.lang.System.out
     p java.lang.System.out.println("Hello, world!")
     p java.lang.System.console.writer
-    #p java.lang.System.out.hashCode
+    p java.lang.System.out.hashCode
   end
 end
