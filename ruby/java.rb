@@ -34,6 +34,10 @@ class Java
         @arg_tags << $&[0]
       end
     end
+
+    def field?
+      @sig == '()'
+    end
   end
 
   class TypeMirror
@@ -51,6 +55,16 @@ class Java
 
       @methods = {}
       @static_methods = {}
+
+      @j.client.reference_type_fields(ref_id).each do |id, name, sig, mod|
+        method = MethodMirror.new(@j, id, name, '()', mod)
+        if (mod & ACC_STATIC) != 0
+          map = @static_methods
+        else
+          map = @methods
+        end
+        (map[name] ||= []) << method
+      end
 
       @j.client.reference_type_methods(ref_id).each do |id, name, sig, mod|
         next if name == '<clinit>'
@@ -160,12 +174,22 @@ class Java
           retval, exception = @j.client.class_type_new_instance(
                     @cls_id, @j.main_tid, method.id, ea, 0)
         elsif this
-          retval, exception = @j.client.object_reference_invoke_method(
-                    this.instance_variable_get(:@id), @j.main_tid,
-                    @cls_id, method.id, ea, 0)
+          obj_id = this.instance_variable_get(:@id)
+          if method.field?
+            retval = @j.client.object_reference_get_values(obj_id, [method.id])
+            retval = retval[0]
+          else
+            retval, exception = @j.client.object_reference_invoke_method(
+                      obj_id, @j.main_tid, @cls_id, method.id, ea, 0)
+          end
         else
-          retval, exception = @j.client.class_type_invoke_method(
-                    @cls_id, @j.main_tid, method.id, ea, 0)
+          if method.field?
+            retval = @j.client.reference_type_get_values(@ref_id, [method.id])
+            retval = retval[0]
+          else
+            retval, exception = @j.client.class_type_invoke_method(
+                      @cls_id, @j.main_tid, method.id, ea, 0)
+          end
         end
 
         if exception
@@ -391,5 +415,7 @@ if $0 == __FILE__
     p java.io.File.new("foo//bar").getParentFile()
     p java.lang.System.console
     #p java.lang.System.console.writer
+    p java.lang.System.out
+    p java.lang.System.out.println("Hello, world!")
   end
 end

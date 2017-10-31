@@ -32,6 +32,9 @@ class TestJava < Test::Unit::TestCase
       file = java.io.File.new('foo//bar')
       assert_equal 'foo/bar', file.toString
       assert_equal 'foo', file.getParentFile.toString
+
+      assert_not_nil java.lang.System.out
+      assert_nil java.lang.System.out.println("Hello, world!")
     end
   end
 
