@@ -73,8 +73,8 @@ class Java
           map = @static_methods
         else
           map = @methods
-        end
-        (map[name] ||= []) << method
+        end 
+       (map[name] ||= []) << method
       end
 
       @static_methods.each do |name, method|
@@ -257,17 +257,6 @@ class Java
       # Skip VM_START.
       @client.wait_event
 
-      # @client.event_request_set(Client::EventKind::METHOD_ENTRY,
-      #                           Client::SuspendPolicy::ALL, [])
-      # 4800.times do
-      #   @client.virtual_machine_resume
-      #   resp = @client.wait_event
-      #   cls_name = resp[5]
-      #   p resp
-      #   #p cls_name
-      #   #break if cls_name.include?(cls)
-      # end
-
       # Run a single step to activate the VM.
       @client.event_request_set(Client::EventKind::SINGLE_STEP,
                                 Client::SuspendPolicy::ALL,
@@ -297,8 +286,6 @@ class Java
       if name == 'main'
         @main_tid = tid
       end
-      p name
-      p @client.thread_reference_status(tid)
     end
 
     load_classes(@client.virtual_machine_all_classes_with_generic)
@@ -417,5 +404,6 @@ if $0 == __FILE__
     p java.lang.System.out
     p java.lang.System.out.println("Hello, world!")
     p java.lang.System.console.writer
+    #p java.lang.System.out.hashCode
   end
 end
