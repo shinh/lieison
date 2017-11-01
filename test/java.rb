@@ -35,6 +35,14 @@ class TestJava < Test::Unit::TestCase
 
       assert_not_nil java.lang.System.out
       assert_nil java.lang.System.out.println("Hello, world!")
+      assert 0 < java.lang.System.out.hashCode
+
+      arr = java.util.ArrayList.new
+      arr.add(java.io.File.new('a/b/c'))
+      arr.add(java.io.File.new('a/b/d'))
+      arr.add(java.io.File.new('a/b/e'))
+      assert_equal 3, arr.size
+      assert_equal 'a/b/d', arr.get(1).toString
     end
   end
 

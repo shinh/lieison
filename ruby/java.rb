@@ -132,7 +132,14 @@ class Java
             return nil
           end
         else
-          raise "Not implemented: #{arg}"
+          if tag != 'L'
+            return nil
+          end
+          id = arg.instance_variable_get(:@id)
+          if !id
+            raise "Not implemented: #{arg}"
+          end
+          arg = Client::ObjectID.new(id)
         end
         ret << Client::TaggedValue.new(tag, arg)
         total_score += score
@@ -409,5 +416,12 @@ if $0 == __FILE__
     p java.lang.System.out.println("Hello, world!")
     p java.lang.System.console.writer
     p java.lang.System.out.hashCode
+
+    arr = java.util.ArrayList.new
+    arr.add(java.io.File.new('a/b/c'))
+    arr.add(java.io.File.new('a/b/d'))
+    arr.add(java.io.File.new('a/b/e'))
+    p arr.size
+    p arr.get(1).toString
   end
 end
